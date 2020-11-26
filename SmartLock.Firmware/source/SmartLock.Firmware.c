@@ -32,19 +32,29 @@
  * @file    SmartLock.Firmware.c
  * @brief   Application entry point.
  */
+#include "lwip/opt.h"
+
 #include <stdio.h>
 #include "board.h"
+#include "fsl_phy.h"
+
+#include "lwip/api.h"
+#include "lwip/apps/mqtt.h"
+#include "lwip/tcpip.h"
+#include "lwip/timeouts.h"
+#include "netif/ethernet.h"
+#include "enet_ethernetif.h"
+
 #include "peripherals.h"
 #include "pin_mux.h"
 #include "clock_config.h"
 #include "MK64F12.h"
 #include "fsl_debug_console.h"
+#include "fsl_phyksz8081.h"
+#include "fsl_enet_mdio.h"
 
 #include "FreeRTOS.h"
 #include "task.h"
-#include "netif/ethernet.h"
-#include "enet_ethernetif.h"
-#include "lwip/apps/mqtt.h"
 
 /** Defines **/
 #define configIP_ADDR0 192
@@ -67,6 +77,13 @@
         0x02, 0x12, 0x13, 0x10, 0x15, 0x11 \
     }
 
+
+/* Address of PHY interface. */
+#define EXAMPLE_PHY_ADDRESS BOARD_ENET0_PHY_ADDRESS
+
+/* System clock name. */
+#define EXAMPLE_CLOCK_NAME kCLOCK_CoreSysClk
+
 /** Global vars **/
 static struct netif fsl_netif0;
 static const struct mqtt_connect_client_info_t mqtt_client_config = {
@@ -87,6 +104,10 @@ void print_hello(void* params) {
 	PRINTF("Hello from task!");
 	vTaskSuspend(NULL);
 }
+
+
+static void connect_to_mqtt(void *ctx);
+static volatile bool connected = false;
 
 static void mqtt_connection_cb(mqtt_client_t *client, void *arg, mqtt_connection_status_t status) {
     const struct mqtt_connect_client_info_t *client_info = (const struct mqtt_connect_client_info_t *)arg;
@@ -182,6 +203,8 @@ int main(void) {
 #endif
 
     PRINTF("Terminal Running\n");
+
+    init_ipstack();
 
     if(xTaskCreate(print_hello, "print_hello", configMINIMAL_STACK_SIZE + 10, NULL, 1, NULL) != pdPASS)
     {

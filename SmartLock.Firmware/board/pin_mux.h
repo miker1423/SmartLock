@@ -323,7 +323,7 @@ void BOARD_InitUSBPins(void);
  * @brief Configures pin routing and optionally pin electrical features.
  *
  */
-void BOARD_InitFMTPins(void);
+void BOARD_InitFTM0(void);
 
 #if defined(__cplusplus)
 }

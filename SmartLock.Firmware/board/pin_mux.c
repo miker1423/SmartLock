@@ -837,8 +837,8 @@ void BOARD_InitUSBPins(void)
 /* clang-format off */
 /*
  * TEXT BELOW IS USED AS SETTING FOR TOOLS *************************************
-BOARD_InitFMTPins:
-- options: {callFromInitBoot: 'false', prefix: BOARD_, coreID: core0, enableClock: 'true'}
+BOARD_InitFTM0:
+- options: {callFromInitBoot: 'false', prefix: BOARD, coreID: core0, enableClock: 'true'}
 - pin_list:
   - {pin_num: '71', peripheral: FTM0, signal: 'CH, 0', pin_signal: ADC0_SE15/PTC1/LLWU_P6/SPI0_PCS3/UART1_RTS_b/FTM0_CH0/FB_AD13/I2S0_TXD0}
  * BE CAREFUL MODIFYING THIS COMMENT - IT IS YAML SETTINGS FOR TOOLS ***********
@@ -847,11 +847,11 @@ BOARD_InitFMTPins:
 
 /* FUNCTION ************************************************************************************************************
  *
- * Function Name : BOARD_InitFMTPins
+ * Function Name : BOARD_InitFTM0
  * Description   : Configures pin routing and optionally pin electrical features.
  *
  * END ****************************************************************************************************************/
-void BOARD_InitFMTPins(void)
+void BOARD_InitFTM0(void)
 {
     /* Port C Clock Gate Control: Clock enabled */
     CLOCK_EnableClock(kCLOCK_PortC);

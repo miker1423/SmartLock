@@ -14,7 +14,7 @@ processor_version: 8.0.1
 board: FRDM-K64F
 functionalGroups:
 - name: BOARD_InitPeripherals
-  UUID: 3efc5b88-1d40-4552-8988-10e5915c1b2a
+  UUID: b22f1c64-264b-43be-aa59-b73049f1dbca
   called_from_default_init: true
   selectedCore: core0
  * BE CAREFUL MODIFYING THIS COMMENT - IT IS YAML SETTINGS FOR TOOLS **********/
