@@ -42,10 +42,128 @@
 
 #include "FreeRTOS.h"
 #include "task.h"
+#include "netif/ethernet.h"
+#include "enet_ethernetif.h"
+#include "lwip/apps/mqtt.h"
+
+/** Defines **/
+#define configIP_ADDR0 192
+#define configIP_ADDR1 168
+#define configIP_ADDR2   1
+#define configIP_ADDR3 200
+
+#define configNET_MASK0 255
+#define configNET_MASK1 255
+#define configNET_MASK2 255
+#define configNET_MASK3   0
+
+#define configGW_ADDR0 192
+#define configGW_ADDR1 168
+#define configGW_ADDR2   1
+#define configGW_ADDR3 254
+
+#define configMAC_ADDR                     \
+    {                                      \
+        0x02, 0x12, 0x13, 0x10, 0x15, 0x11 \
+    }
+
+/** Global vars **/
+static struct netif fsl_netif0;
+static const struct mqtt_connect_client_info_t mqtt_client_config = {
+	.client_id = "frdm",
+	.client_user = NULL,
+	.client_pass = NULL,
+	.keep_alive = 100,
+	.will_topic = NULL,
+	.will_msg   = NULL,
+	.will_qos = 0,
+	.will_retain = 0,
+};
+
+static mqtt_client_t *mqtt_client;
+static ip_addr_t mqtt_host_addr;
 
 void print_hello(void* params) {
 	PRINTF("Hello from task!");
 	vTaskSuspend(NULL);
+}
+
+static void mqtt_connection_cb(mqtt_client_t *client, void *arg, mqtt_connection_status_t status) {
+    const struct mqtt_connect_client_info_t *client_info = (const struct mqtt_connect_client_info_t *)arg;
+
+    connected = (status == MQTT_CONNECT_ACCEPTED);
+
+    switch (status)
+    {
+        case MQTT_CONNECT_ACCEPTED:
+            PRINTF("MQTT client \"%s\" connected.\r\n", client_info->client_id);
+            mqtt_subscribe_topics(client);
+            break;
+
+        case MQTT_CONNECT_DISCONNECTED:
+            PRINTF("MQTT client \"%s\" not connected.\r\n", client_info->client_id);
+            /* Try to reconnect 1 second later */
+            sys_timeout(1000, connect_to_mqtt, NULL);
+            break;
+
+        case MQTT_CONNECT_TIMEOUT:
+            PRINTF("MQTT client \"%s\" connection timeout.\r\n", client_info->client_id);
+            /* Try again 1 second later */
+            sys_timeout(1000, connect_to_mqtt, NULL);
+            break;
+
+        case MQTT_CONNECT_REFUSED_PROTOCOL_VERSION:
+        case MQTT_CONNECT_REFUSED_IDENTIFIER:
+        case MQTT_CONNECT_REFUSED_SERVER:
+        case MQTT_CONNECT_REFUSED_USERNAME_PASS:
+        case MQTT_CONNECT_REFUSED_NOT_AUTHORIZED_:
+            PRINTF("MQTT client \"%s\" connection refused: %d.\r\n", client_info->client_id, (int)status);
+            /* Try again 10 seconds later */
+            sys_timeout(10000, connect_to_mqtt, NULL);
+            break;
+
+        default:
+            PRINTF("MQTT client \"%s\" connection status: %d.\r\n", client_info->client_id, (int)status);
+            /* Try again 10 seconds later */
+            sys_timeout(10000, connect_to_mqtt, NULL);
+            break;
+    }
+}
+
+static void connect_to_mqtt(void *ctx){
+	LWIP_UNUSED_ARG(ctx);
+
+	mqtt_client_connect(mqtt_client, &mqtt_host_addr, 1883, mqtt_connection_cb,
+			LWIP_CONST_CAST(void *, &mqtt_client_config), &mqtt_client_config);
+}
+
+static void init_ipstack(void)
+{
+	ip4_addr_t fsl_netif0_ipaddr, fsl_netif0_netmask, fsl_netif0_gw;
+    ethernetif_config_t fsl_enet_config0 = {
+        .phyAddress = EXAMPLE_PHY_ADDRESS,
+        .clockName  = EXAMPLE_CLOCK_NAME,
+        .macAddress = configMAC_ADDR,
+    };
+
+    IP4_ADDR(&fsl_netif0_ipaddr, configIP_ADDR0, configIP_ADDR1, configIP_ADDR2, configIP_ADDR3);
+    IP4_ADDR(&fsl_netif0_netmask, configNET_MASK0, configNET_MASK1, configNET_MASK2, configNET_MASK3);
+    IP4_ADDR(&fsl_netif0_gw, configGW_ADDR0, configGW_ADDR1, configGW_ADDR2, configGW_ADDR3);
+
+    tcpip_init(NULL, NULL);
+
+    netifapi_netif_add(&fsl_netif0, &fsl_netif0_ipaddr, &fsl_netif0_netmask, &fsl_netif0_gw, fsl_enet_config0, ethernetif0_init, tcpip_input);
+    netifapi_netif_set_default(&fsl_netif0);
+    netifapi_netif_set_up(&fsl_netif0);
+
+    err_t err;
+    err = netconn_gethostbyname("", &mqtt_host_addr);
+    if(ERR_OK == err) {
+    	err = tcpip_callback(connect_to_mqtt, NULL);
+    	if(ERR_OK != err) {
+    		PRINTF("Failed to connect!");
+    	}
+    }
 }
 
 
