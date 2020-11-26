@@ -246,3 +246,5 @@ src/WebSocketManager.Client.TS/app/build/
 
 *.map
 *.min.js
+
+.settings/
