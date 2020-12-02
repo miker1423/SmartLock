@@ -28,6 +28,8 @@
 #include "netif/ethernet.h"
 #include "enet_ethernetif.h"
 #include "lwip_mqtt_id.h"
+#include "task.h"
+#include "event_groups.h"
 
 #include "ctype.h"
 #include "stdio.h"
@@ -37,6 +39,8 @@
 #include "clock_config.h"
 #include "fsl_phyksz8081.h"
 #include "fsl_enet_mdio.h"
+
+#include "tasks/mqtt/mqtt_tasks.h"
 /*******************************************************************************
  * Definitions
  ******************************************************************************/
@@ -75,7 +79,7 @@
 #endif /* EXAMPLE_NETIF_INIT_FN */
 
 /*! @brief MQTT server host name or IP address. */
-#define EXAMPLE_MQTT_SERVER_HOST "broker.hivemq.com"
+#define EXAMPLE_MQTT_SERVER_HOST "192.168.1.246"
 
 /*! @brief MQTT server port number. */
 #define EXAMPLE_MQTT_SERVER_PORT 1883
@@ -100,7 +104,14 @@ static mdio_handle_t mdioHandle = {.ops = &EXAMPLE_MDIO_OPS};
 static phy_handle_t phyHandle   = {.phyAddr = EXAMPLE_PHY_ADDRESS, .mdioHandle = &mdioHandle, .ops = &EXAMPLE_PHY_OPS};
 
 /*! @brief MQTT client data. */
-static mqtt_client_t *mqtt_client;
+mqtt_client_t *mqtt_client;
+
+/* Control structures */
+QueueHandle_t send_queue;
+QueueHandle_t receive_queue;
+SemaphoreHandle_t mqtt_mutex;
+EventGroupHandle_t servo_events;
+EventGroupHandle_t auth_events;
 
 /*! @brief MQTT client ID string. */
 static char client_id[40];
@@ -189,8 +200,8 @@ static void mqtt_incoming_data_cb(void *arg, const u8_t *data, u16_t len, u8_t f
  */
 static void mqtt_subscribe_topics(mqtt_client_t *client)
 {
-    static const char *topics[] = {"lwip_topic/#", "lwip_other/#"};
-    int qos[]                   = {0, 1};
+    static const char *topics[] = {"lwip_topic/#"};
+    int qos[]                   = {0};
     err_t err;
     int i;
 
@@ -293,7 +304,7 @@ static void mqtt_message_published_cb(void *arg, err_t err)
  */
 static void publish_message(void *ctx)
 {
-    static const char *topic   = "lwip_topic/100";
+    static const char *topic   = "devices/device1";
     static const char *message = "message from board";
 
     LWIP_UNUSED_ARG(ctx);
@@ -445,6 +456,18 @@ int main(void)
         while (1)
         {
         }
+    }
+
+    TaskHandle_t xHandle = NULL;
+    receive_queue = xQueueCreate(10, sizeof(uint32_t));
+    send_queue = xQueueCreate(10, sizeof(uint32_t));
+    mqtt_mutex = xSemaphoreCreateMutex();
+    servo_events = xEventGroupCreate();
+    auth_events = xEventGroupCreate();
+
+    BaseType_t result = xTaskCreate(init_mqtt_tasks, "init_mqtt_task", configMINIMAL_STACK_SIZE + 200, NULL, tskIDLE_PRIORITY, &xHandle);
+    if(pdPASS == result){
+    	PRINTF("Created task");
     }
 
     netifapi_netif_add(&netif, &netif_ipaddr, &netif_netmask, &netif_gw, &enet_config, EXAMPLE_NETIF_INIT_FN,
