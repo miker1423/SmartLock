@@ -39,9 +39,11 @@
 #include "clock_config.h"
 #include "fsl_phyksz8081.h"
 #include "fsl_enet_mdio.h"
+#include "fsl_ftm.h"
 
 #include "tasks/mqtt/mqtt_tasks.h"
 #include "tasks/auth/auth_tasks.h"
+#include "tasks/servo/servo_tasks.h"
 #include "models/messages.h"
 /*******************************************************************************
  * Definitions
@@ -440,6 +442,30 @@ void BOARD_SW2_IRQ_HANDLER(void) {
 	ExecuteIRQAuth(AUTH_REGISTER);
 }
 
+void init_fmt(){
+
+    ftm_config_t ftmInfo;
+    ftm_chnl_pwm_signal_param_t ftmParam;
+    ftm_pwm_level_select_t pwmLevel = kFTM_LowTrue;
+
+    /* Configure ftm params with frequency 24kHZ */
+    ftmParam.chnlNumber            = kFTM_Chnl_0;
+    ftmParam.level                 = pwmLevel;
+    ftmParam.dutyCyclePercent      = 88;
+    ftmParam.firstEdgeDelayPercent = 0U;
+
+
+    FTM_GetDefaultConfig(&ftmInfo);
+    ftmInfo.prescale = kFTM_Prescale_Divide_128;//LEGA Modify the preescaler
+    /* Initialize FTM module */
+    FTM_Init(FTM0, &ftmInfo);
+
+    //FTM_SetupPwm(BOARD_FTM_BASEADDR, &ftmParam, 1U, kFTM_CenterAlignedPwm, 24000U, FTM_SOURCE_CLOCK);
+    FTM_SetupPwm(FTM0, &ftmParam, 1U, kFTM_EdgeAlignedPwm, 50U, CLOCK_GetFreq(kCLOCK_BusClk)); //LEGA for SERVO
+
+    FTM_StartTimer(FTM0, kFTM_SystemClock);
+}
+
 /*!
  * @brief Main function
  */
@@ -491,6 +517,8 @@ int main(void)
     base->CESR &= ~SYSMPU_CESR_VLD_MASK;
     generate_client_id();
 
+    init_fmt();
+
     mdioHandle.resource.csrClock_Hz = EXAMPLE_CLOCK_FREQ;
 
     IP4_ADDR(&netif_ipaddr, 0U, 0U, 0U, 0U);
@@ -524,6 +552,12 @@ int main(void)
     result = xTaskCreate(auth_task, "auth_task", configMINIMAL_STACK_SIZE + 50, NULL, tskIDLE_PRIORITY, &authHandle);
     if(pdPASS == result) {
     	PRINTF("Created auth task\n");
+    }
+
+    TaskHandle_t servoHandle = NULL;
+    result = xTaskCreate(servo_action_task, "servo_task", configMINIMAL_STACK_SIZE + 50, NULL, tskIDLE_PRIORITY, &servoHandle);
+    if(pdPASS == result){
+    	PRINTF("Created servo task");
     }
 
     /*

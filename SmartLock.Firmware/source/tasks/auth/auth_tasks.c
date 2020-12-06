@@ -25,6 +25,10 @@ void auth_task(void* args)
 		EventBits_t auth_bits = xEventGroupWaitBits(auth_events, auth_event_bits, pdTRUE, pdFALSE, portMAX_DELAY);
 		if(AUTH_AUTHENTICATE == (auth_bits & AUTH_AUTHENTICATE)){
 			PRINTF("Auth requested");
+			uint8_t result = 1;
+			if(result){
+				xEventGroupSetBits(servo_events, SERVO_OPEN_BIT);
+			}
 		} else if(AUTH_REGISTER == (auth_bits & AUTH_REGISTER)){
 			PRINTF("Register requested");
 		}

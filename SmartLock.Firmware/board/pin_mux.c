@@ -149,6 +149,9 @@ void BOARD_InitPins(void)
     /* PORTB22 (pin 68) is configured as PTB22 */
     PORT_SetPinMux(PORTB, 22U, kPORT_MuxAsGpio);
 
+    /* PORTC1 (pin 71) is configured as FTM0_CH0 */
+    PORT_SetPinMux(PORTC, 1U, kPORT_MuxAlt4);
+
     /* PORTC16 (pin 90) is configured as ENET0_1588_TMR0 */
     PORT_SetPinMux(PORTC, 16U, kPORT_MuxAlt4);
 
