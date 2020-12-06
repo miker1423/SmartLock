@@ -12,6 +12,8 @@ using MQTTnet.Client;
 using MQTTnet.Client.Connecting;
 using MQTTnet.Client.Disconnecting;
 using MQTTnet.Client.Receiving;
+using SmartLock.Web.DbContetxs;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace SmartLock.Web
 {
@@ -23,10 +25,12 @@ namespace SmartLock.Web
         private readonly ILogger<MqttWorker> _logger;
         private readonly IMqttClient _client;
         private readonly IMqttClientOptions _options;
+        private IServiceScopeFactory _serviceFactory;
 
         public MqttWorker(ILogger<MqttWorker> logger, 
                           IMqttClient client,
-                          IMqttClientOptions options)
+                          IMqttClientOptions options,
+                          IServiceScopeFactory serviceFactory)
         {
             _logger = logger;
             _client = client;
@@ -34,6 +38,8 @@ namespace SmartLock.Web
             _client.ApplicationMessageReceivedHandler = this;
             _client.ConnectedHandler = this;
             _client.DisconnectedHandler = this;
+
+            _serviceFactory = serviceFactory;
         }
 
         public Task HandleApplicationMessageReceivedAsync(MqttApplicationMessageReceivedEventArgs args)
