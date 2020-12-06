@@ -41,6 +41,8 @@
 #include "fsl_enet_mdio.h"
 
 #include "tasks/mqtt/mqtt_tasks.h"
+#include "tasks/auth/auth_tasks.h"
+#include "models/messages.h"
 /*******************************************************************************
  * Definitions
  ******************************************************************************/
@@ -415,6 +417,29 @@ static void generate_client_id(void)
     }
 }
 
+void ExecuteIRQAuth(uint8_t settedBit){
+	BaseType_t xHigherPriorityTaskWoken = pdFAIL, result;
+	result = xEventGroupSetBitsFromISR(auth_events, settedBit, &xHigherPriorityTaskWoken);
+	if(pdFAIL != result){
+		portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+	}
+}
+
+void BOARD_SW3_IRQ_HANDLER(void) {
+	GPIO_PortClearInterruptFlags(BOARD_SW3_GPIO, 1U << BOARD_SW3_GPIO_PIN);
+
+	PRINTF("Button 2\n");
+	ExecuteIRQAuth(AUTH_AUTHENTICATE);
+}
+
+
+void BOARD_SW2_IRQ_HANDLER(void) {
+	GPIO_PortClearInterruptFlags(BOARD_SW2_GPIO, 1U << BOARD_SW2_GPIO_PIN);
+
+	PRINTF("Button 1\n");
+	ExecuteIRQAuth(AUTH_REGISTER);
+}
+
 /*!
  * @brief Main function
  */
@@ -437,6 +462,31 @@ int main(void)
     BOARD_InitBootPins();
     BOARD_InitBootClocks();
     BOARD_InitDebugConsole();
+
+    gpio_pin_config_t sw_config = {
+		kGPIO_DigitalInput,
+		0,
+	};
+
+    PORT_SetPinInterruptConfig(BOARD_SW3_PORT, BOARD_SW3_GPIO_PIN, kPORT_InterruptFallingEdge);
+
+
+    uint32_t res = NVIC_GetPriority(PORTA_IRQn);
+    NVIC_SetPriority(PORTA_IRQn, 5);
+    res = NVIC_GetPriority(PORTA_IRQn);
+
+    EnableIRQ(BOARD_SW3_IRQ);
+    GPIO_PinInit(BOARD_SW3_GPIO, BOARD_SW3_GPIO_PIN, &sw_config);
+
+    PORT_SetPinInterruptConfig(BOARD_SW2_PORT, BOARD_SW2_GPIO_PIN, kPORT_InterruptFallingEdge);
+
+    res = NVIC_GetPriority(PORTC_IRQn);
+    NVIC_SetPriority(PORTC_IRQn, 5);
+    res = NVIC_GetPriority(PORTC_IRQn);
+
+    EnableIRQ(BOARD_SW2_IRQ);
+    GPIO_PinInit(BOARD_SW2_GPIO, BOARD_SW2_GPIO_PIN, &sw_config);
+
     /* Disable SYSMPU. */
     base->CESR &= ~SYSMPU_CESR_VLD_MASK;
     generate_client_id();
@@ -458,18 +508,25 @@ int main(void)
         }
     }
 
-    TaskHandle_t xHandle = NULL;
+    TaskHandle_t xHandle = NULL, authHandle = NULL;
     receive_queue = xQueueCreate(10, sizeof(uint32_t));
     send_queue = xQueueCreate(10, sizeof(uint32_t));
     mqtt_mutex = xSemaphoreCreateMutex();
     servo_events = xEventGroupCreate();
     auth_events = xEventGroupCreate();
 
-    BaseType_t result = xTaskCreate(init_mqtt_tasks, "init_mqtt_task", configMINIMAL_STACK_SIZE + 200, NULL, tskIDLE_PRIORITY, &xHandle);
+
+    BaseType_t result = xTaskCreate(init_mqtt_tasks, "init_mqtt_task", configMINIMAL_STACK_SIZE + 50, NULL, tskIDLE_PRIORITY, &xHandle);
     if(pdPASS == result){
-    	PRINTF("Created task");
+    	PRINTF("Created task\n");
     }
 
+    result = xTaskCreate(auth_task, "auth_task", configMINIMAL_STACK_SIZE + 50, NULL, tskIDLE_PRIORITY, &authHandle);
+    if(pdPASS == result) {
+    	PRINTF("Created auth task\n");
+    }
+
+    /*
     netifapi_netif_add(&netif, &netif_ipaddr, &netif_netmask, &netif_gw, &enet_config, EXAMPLE_NETIF_INIT_FN,
                        tcpip_input);
     netifapi_netif_set_default(&netif);
@@ -485,6 +542,7 @@ int main(void)
     {
         LWIP_ASSERT("main(): Task creation failed.", 0);
     }
+    */
 
     vTaskStartScheduler();
 

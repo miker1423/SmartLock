@@ -115,6 +115,7 @@ void BOARD_InitPins(void)
                                                    kPORT_UnlockRegister};
     /* PORTA4 (pin 38) is configured as PTA4 */
     PORT_SetPinConfig(PORTA, 4U, &porta4_pin38_config);
+    PORT_SetPinConfig(PORTC, 6u, &porta4_pin38_config);
 
     /* PORTA5 (pin 39) is configured as RMII0_RXER */
     PORT_SetPinMux(PORTA, 5U, kPORT_MuxAlt4);

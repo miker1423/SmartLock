@@ -16,4 +16,6 @@
 
 void init_mqtt_tasks(void *args);
 
+void mqtt_send_task(void *args);
+
 #endif /* TASKS_MQTT_MQTT_TASKS_H_ */

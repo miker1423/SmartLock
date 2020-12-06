@@ -29,8 +29,8 @@ void mqtt_send_task(void *args) {
 			PRINTF("No queue configured");
 		}
 
-		void *message = NULL;
-		BaseType_t result = xQueueReceive(receive_queue, message, portMAX_DELAY);
+		uint32_t message = 0;
+		BaseType_t result = xQueueReceive(receive_queue, &message, portMAX_DELAY);
 		if(result) {}
 
 		if(NULL == mqtt_mutex) {
@@ -45,18 +45,20 @@ void mqtt_send_task(void *args) {
 }
 
 
-void mqtt_receive_task(void *args) { }
+void mqtt_receive_task(void *args) {
+	vTaskSuspend(NULL);
+}
 
 void init_mqtt_tasks(void *args) {
 	BaseType_t result;
 	TaskHandle_t xSendHandle;
-	result = xTaskCreate(mqtt_send_task, "send_task", configMINIMAL_STACK_SIZE + 200, NULL, tskIDLE_PRIORITY, &xSendHandle);
+	result = xTaskCreate(mqtt_send_task, "send_task", configMINIMAL_STACK_SIZE + 50, NULL, tskIDLE_PRIORITY, &xSendHandle);
 	if(pdPASS != result){
 		PRINTF("Failed to create send task");
 	}
 
 	TaskHandle_t xReceiveHandle;
-	result = xTaskCreate(mqtt_receive_task, "receive_task", configMINIMAL_STACK_SIZE + 200, NULL, tskIDLE_PRIORITY, &xReceiveHandle);
+	result = xTaskCreate(mqtt_receive_task, "receive_task", configMINIMAL_STACK_SIZE, NULL, tskIDLE_PRIORITY, &xReceiveHandle);
 	if(pdPASS != result){
 		PRINTF("Failed to create receive task");
 	}

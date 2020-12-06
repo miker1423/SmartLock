@@ -6,10 +6,11 @@
  */
 
 
+#include <stddef.h>
+#include "../../../utilities/fsl_debug_console.h"
 #include "FreeRTOS.h"
 #include "auth_tasks.h"
 #include "event_groups.h"
-
 
 extern QueueHandle_t send_queue;
 extern QueueHandle_t receive_queue;
