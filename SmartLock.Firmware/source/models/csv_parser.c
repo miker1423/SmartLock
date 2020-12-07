@@ -9,7 +9,7 @@
 #include <string.h>
 #include "messages.h"
 
-#define MAX_PACKAGE_SIZE 23
+#define MAX_PACKAGE_SIZE 43
 
 char GetMessageType(MessageType type){
 	switch(type){
@@ -68,8 +68,11 @@ char* ToCsv(RequestMessage *message){
 
 	payload[0] = GetMessageType(message->type);
 	payload[1] = ',';
-	memcpy(payload + 2, (void *)message->thumbprint, 20);
-	payload[22] = '\0';
+	uint32_t i = 0;
+	for(i = 0; i < 20; i++){
+		snprintf(payload + 2 + (i * 2), MAX_PACKAGE_SIZE, "%0*x", 2, message->thumbprint[i]);
+	}
+	payload[42] = '\0';
 
 	return payload;
 }

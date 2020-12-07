@@ -116,6 +116,7 @@ QueueHandle_t receive_queue;
 SemaphoreHandle_t mqtt_mutex;
 EventGroupHandle_t servo_events;
 EventGroupHandle_t auth_events;
+EventGroupHandle_t ready_events;
 
 /* Global topic for device */
 char *device_topic;
@@ -163,6 +164,10 @@ static void mqtt_topic_subscribed_cb(void *arg, err_t err)
     {
         PRINTF("Failed to subscribe to the topic \"%s\": %d.\r\n", topic, err);
     }
+
+    BaseType_t higherPriority;
+    BaseType_t result = xSemaphoreGiveFromISR(mqtt_mutex, &higherPriority);
+    if(pdFAIL != result) portYIELD_FROM_ISR(higherPriority);
 }
 
 /*!
@@ -207,27 +212,15 @@ static void mqtt_incoming_data_cb(void *arg, const u8_t *data, u16_t len, u8_t f
  */
 static void mqtt_subscribe_topics(mqtt_client_t *client)
 {
-    static const char *topics[] = {"lwip_topic/#"};
-    int qos[]                   = {0};
-    err_t err;
-    int i;
+	char *receive_topic = (char *)malloc(22);
+	memcpy(receive_topic, device_topic, 20);
+	char *response_section = "/r";
+	memcpy(receive_topic + 20, response_section, 2);
 
-    mqtt_set_inpub_callback(client, mqtt_incoming_publish_cb, mqtt_incoming_data_cb,
-                            LWIP_CONST_CAST(void *, &mqtt_client_info));
+	err_t err = mqtt_subscribe(client, receive_topic, 0, mqtt_topic_subscribed_cb, LWIP_CONST_CAST(void *, receive_topic));
 
-    for (i = 0; i < ARRAY_SIZE(topics); i++)
-    {
-        err = mqtt_subscribe(client, topics[i], qos[i], mqtt_topic_subscribed_cb, LWIP_CONST_CAST(void *, topics[i]));
-
-        if (err == ERR_OK)
-        {
-            PRINTF("Subscribing to the topic \"%s\" with QoS %d...\r\n", topics[i], qos[i]);
-        }
-        else
-        {
-            PRINTF("Failed to subscribe to the topic \"%s\" with QoS %d: %d.\r\n", topics[i], qos[i], err);
-        }
-    }
+	if (err == ERR_OK) PRINTF("Subscribing to the topic \"%s\" with QoS %d...\r\n", receive_topic, 0);
+	else PRINTF("Failed to subscribe to the topic \"%s\" with QoS %d: %d.\r\n", receive_topic, 0, err);
 }
 
 /*!
@@ -243,7 +236,8 @@ static void mqtt_connection_cb(mqtt_client_t *client, void *arg, mqtt_connection
     {
         case MQTT_CONNECT_ACCEPTED:
             PRINTF("MQTT client \"%s\" connected.\r\n", client_info->client_id);
-            mqtt_subscribe_topics(client);
+            //mqtt_subscribe_topics(client);
+            xEventGroupSetBits(ready_events, READY_BIT);
             break;
 
         case MQTT_CONNECT_DISCONNECTED:
@@ -296,14 +290,8 @@ static void mqtt_message_published_cb(void *arg, err_t err)
 {
     const char *topic = (const char *)arg;
 
-    if (err == ERR_OK)
-    {
-        PRINTF("Published to the topic \"%s\".\r\n", topic);
-    }
-    else
-    {
-        PRINTF("Failed to publish to the topic \"%s\": %d.\r\n", topic, err);
-    }
+    if (err == ERR_OK) PRINTF("Published to the topic \"%s\".\r\n", topic);
+    else PRINTF("Failed to publish to the topic \"%s\": %d.\r\n", topic, err);
 }
 
 /*!
@@ -330,6 +318,8 @@ static void app_thread(void *arg)
     struct dhcp *dhcp;
     err_t err;
     int i;
+
+    xSemaphoreTake(mqtt_mutex, portMAX_DELAY);
 
     /* Wait for address from DHCP */
 
@@ -386,6 +376,7 @@ static void app_thread(void *arg)
     }
 
     /* Publish some messages */
+    /*
     for (i = 0; i < 5;)
     {
         if (connected)
@@ -400,6 +391,7 @@ static void app_thread(void *arg)
 
         sys_msleep(1000U);
     }
+    */
 
     vTaskDelete(NULL);
 }
@@ -553,6 +545,7 @@ int main(void)
     mqtt_mutex = xSemaphoreCreateMutex();
     servo_events = xEventGroupCreate();
     auth_events = xEventGroupCreate();
+    ready_events = xEventGroupCreate();
 
 
     BaseType_t result = xTaskCreate(init_mqtt_tasks, "init_mqtt_task", configMINIMAL_STACK_SIZE + 50, NULL, tskIDLE_PRIORITY, &xHandle);
@@ -568,10 +561,9 @@ int main(void)
     TaskHandle_t servoHandle = NULL;
     result = xTaskCreate(servo_action_task, "servo_task", configMINIMAL_STACK_SIZE + 50, NULL, tskIDLE_PRIORITY, &servoHandle);
     if(pdPASS == result){
-    	PRINTF("Created servo task");
+    	PRINTF("Created servo task\n");
     }
 
-    /*
     netifapi_netif_add(&netif, &netif_ipaddr, &netif_netmask, &netif_gw, &enet_config, EXAMPLE_NETIF_INIT_FN,
                        tcpip_input);
     netifapi_netif_set_default(&netif);
@@ -587,7 +579,6 @@ int main(void)
     {
         LWIP_ASSERT("main(): Task creation failed.", 0);
     }
-    */
 
     vTaskStartScheduler();
 

@@ -28,15 +28,15 @@ BaseType_t send_message(MessageType type){
 
 BoolType wait_response() {
 	ResponseMessage *message = (ResponseMessage *)malloc(sizeof(ResponseMessage));
-	BaseType_t result = xQueueReceive(receive_queue, message, portTICK_PERIOD_MS * 1000);
+	BaseType_t result = xQueueReceive(receive_queue, message, portTICK_PERIOD_MS * 10000);
 	if(pdFALSE == result || RESPONSE != message->type) return FALSE;
 	else return message->result;
 }
 
 BoolType make_request(MessageType type){
 	BaseType_t send_result = send_message(type);
-	if(pdTRUE == send_result) PRINTF("Message Sent");
-	else PRINTF("Failed to send message");
+	if(pdTRUE == send_result) PRINTF("Message Sent\n");
+	else PRINTF("Failed to send message\n");
 
 	return wait_response();
 }
@@ -48,19 +48,19 @@ void auth_task(void* args)
 	while(1){
 		EventBits_t auth_bits = xEventGroupWaitBits(auth_events, auth_event_bits, pdTRUE, pdFALSE, portMAX_DELAY);
 		if(AUTH_AUTHENTICATE == (auth_bits & AUTH_AUTHENTICATE)){
-			PRINTF("Auth requested");
+			PRINTF("Auth requested\n");
 			BoolType result = make_request(AUTH);
 			if(TRUE == result){
-				PRINTF("Opening lock");
+				PRINTF("Opening lock\n");
 				xEventGroupSetBits(servo_events, SERVO_OPEN_BIT);
 			} else {
-				PRINTF("Faild to authenticate thumbprint");
+				PRINTF("Faild to authenticate thumbprint\n");
 			}
 		} else if(AUTH_REGISTER == (auth_bits & AUTH_REGISTER)){
-			PRINTF("Register requested");
+			PRINTF("Register requested\n");
 			BoolType result = make_request(REGISTER);
-			if(TRUE == result) PRINTF("Registered successfully");
-			else PRINTF("Failed to register thumbprint");
+			if(TRUE == result) PRINTF("Registered successfully\n");
+			else PRINTF("Failed to register thumbprint\n");
 		}
 	}
 }

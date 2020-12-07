@@ -42,12 +42,15 @@ namespace SmartLock.Web
             _serviceFactory = serviceFactory;
         }
 
-        public Task HandleApplicationMessageReceivedAsync(MqttApplicationMessageReceivedEventArgs args)
+        public async Task HandleApplicationMessageReceivedAsync(MqttApplicationMessageReceivedEventArgs args)
         {
             var message = Encoding.ASCII.GetString(args.ApplicationMessage.Payload);
             _logger.LogInformation("Received message {0}", message);
 
-            return Task.CompletedTask;
+            if (args.ApplicationMessage.Topic.Contains("r")) return;
+
+            var topic = args.ApplicationMessage.Topic + "/r00";
+            await _client.PublishAsync(topic, "2,t");
         }
 
         public async Task HandleConnectedAsync(MqttClientConnectedEventArgs args)

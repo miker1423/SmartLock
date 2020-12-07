@@ -13,6 +13,8 @@
 #define AUTH_AUTHENTICATE (1 << 0)
 #define AUTH_REGISTER (1 << 1)
 
+#define READY_BIT (1 << 0)
+
 typedef enum {
 	AUTH,
 	REGISTER,
