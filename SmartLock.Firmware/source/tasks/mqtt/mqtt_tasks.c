@@ -13,11 +13,22 @@
 #include "semphr.h"
 #include "mqtt.h"
 #include "mqtt_tasks.h"
+#include "../../models/messages.h"
+#include "../../models/csv_parser.h";
 
 extern QueueHandle_t send_queue;
 extern QueueHandle_t receive_queue;
 extern SemaphoreHandle_t mqtt_mutex;
-extern mqtt_client_t mqtt_client;
+extern mqtt_client_t *mqtt_client;
+extern char *device_topic;
+
+static void mqtt_message_published_cb(void *arg, err_t err)
+{
+    const char *topic = (const char *)arg;
+
+    if (err == ERR_OK) PRINTF("Published to the topic \"%s\".\r\n", topic);
+    else PRINTF("Failed to publish to the topic \"%s\": %d.\r\n", topic, err);
+}
 
 void mqtt_send_task(void *args) {
 	if(NULL == mqtt_mutex) {
@@ -29,9 +40,16 @@ void mqtt_send_task(void *args) {
 			PRINTF("No queue configured");
 		}
 
-		uint32_t message = 0;
-		BaseType_t result = xQueueReceive(receive_queue, &message, portMAX_DELAY);
-		if(result) {}
+		RequestMessage *message = (RequestMessage *)malloc(sizeof(RequestMessage));
+		BaseType_t result = xQueueReceive(send_queue, message, portMAX_DELAY);
+		if(pdFALSE == result) {
+			PRINTF("OH Crap");
+			vTaskDelete(NULL);
+			return;
+		}
+
+		char *buffer = ToCsv(message);
+		mqtt_publish(mqtt_client, device_topic, buffer, strlen(buffer), 1, 0, mqtt_message_published_cb, (void *)device_topic);
 
 		if(NULL == mqtt_mutex) {
 			PRINTF("No mutex configured");

@@ -117,6 +117,9 @@ SemaphoreHandle_t mqtt_mutex;
 EventGroupHandle_t servo_events;
 EventGroupHandle_t auth_events;
 
+/* Global topic for device */
+char *device_topic;
+
 /*! @brief MQTT client ID string. */
 static char client_id[40];
 
@@ -536,9 +539,17 @@ int main(void)
         }
     }
 
+    char base_topic[8] = "devices/";
+    device_topic = (char *)malloc(8 + 12); // Topic Size
+    memcpy(device_topic, base_topic, 8);
+    uint32_t i = 0;
+    for(i = 0; i < 6; i++){
+    	snprintf(device_topic + 8 + (i * 2), 20, "%0*x", 2, enet_config.macAddress[i]);
+    }
+
     TaskHandle_t xHandle = NULL, authHandle = NULL;
-    receive_queue = xQueueCreate(10, sizeof(uint32_t));
-    send_queue = xQueueCreate(10, sizeof(uint32_t));
+    receive_queue = xQueueCreate(10, sizeof(ResponseMessage));
+    send_queue = xQueueCreate(10, sizeof(RequestMessage));
     mqtt_mutex = xSemaphoreCreateMutex();
     servo_events = xEventGroupCreate();
     auth_events = xEventGroupCreate();
