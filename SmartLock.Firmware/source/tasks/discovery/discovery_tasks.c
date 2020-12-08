@@ -27,10 +27,13 @@ void discovery_task(void *args){
 		err = netconn_recv(socket, &socket_buf);
 		if(ERR_OK != err) continue;
 
-		memcpy(buffer, socket_buf->p->payload, 1);
+		err = netbuf_copy(socket_buf, buffer, sizeof(buffer));
 		if('d' == buffer[0]){
-			socket_buf->p->len = 6;
-			memcpy(socket_buf->p->payload, macAddress, 12);
+			struct netbuf *sender = netbuf_new();
+			void *ptr = netbuf_alloc(sender, 12);
+			err = netbuf_ref(sender, macAddress, 12);
+			err = netconn_sendto(socket, sender, &socket_buf->addr, socket_buf->port);
+			netbuf_delete(sender);
 		}
 		netbuf_delete(socket_buf);
 	}

@@ -522,7 +522,7 @@ int main(void)
     uint32_t i = 0;
     for(i = 0; i < 6; i++){
     	snprintf(device_topic + 8 + (i * 2), 20, "%0*x", 2, enet_config.macAddress[i]);
-    	snprintf(macAddress + (i * 2), 12, "%0*x", 2, enet_config.macAddress[1]);
+    	snprintf(macAddress + (i * 2), 12, "%0*x", 2, enet_config.macAddress[i]);
     }
 
     TaskHandle_t xHandle = NULL, authHandle = NULL;
