@@ -5,6 +5,9 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Threading.Tasks;
 using Xamarin.Forms;
+using System.Net.Sockets;
+using System.Text;
+using System.Net;
 
 namespace SmartLock.Mobile.ViewModels
 {
@@ -35,11 +38,37 @@ namespace SmartLock.Mobile.ViewModels
             try
             {
                 Items.Clear();
-                var items = await DataStore.GetItemsAsync(true);
-                foreach (var item in items)
+                var client = new UdpClient()
                 {
+                    EnableBroadcast = true,
+                    DontFragment = true
+                };
+                var data = await DataStore.GetItemsAsync();
+                foreach (var item in data)
                     Items.Add(item);
-                }
+                var buffer = new byte[] { (byte)'d' };
+                _ = Task.Run(async () =>
+                {
+                    while (true)
+                    {
+                        var result = await client.ReceiveAsync();
+                        var str = Encoding.ASCII.GetString(result.Buffer);
+                        var item = new Item
+                        {
+                            Description = str,
+                            Id = str,
+                            Text = "Smart Lock"
+                        };
+                        var exists = await DataStore.GetItemAsync(item.Id);
+                        if(exists is null)
+                        {
+                            await DataStore.AddItemAsync(item);
+                            Items.Add(item);
+                        }
+                    }
+                });
+
+                await client.SendAsync(buffer, buffer.Length, "192.168.1.255", 1002);
             }
             catch (Exception ex)
             {

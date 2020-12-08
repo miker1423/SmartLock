@@ -1,14 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace SmartLock.Shared.Models
 {
     public class Device
     {
-        public Home DeviceLocation { get; set; }
+        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+        [Key]
+        public Guid DeviceId { get; set; }
+        public User DeviceOwner { get; set; }
+        public string MacAddress { get; set; }
         public List<TagRegistry> Registries { get; set; }
     }
 }

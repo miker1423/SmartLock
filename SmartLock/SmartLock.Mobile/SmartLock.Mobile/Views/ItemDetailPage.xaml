@@ -5,10 +5,11 @@
              Title="{Binding Title}">
 
     <StackLayout Spacing="20" Padding="15">
-        <Label Text="Text:" FontSize="Medium" />
+        <Label Text="Device Name:" FontSize="Medium" />
         <Label Text="{Binding Text}" FontSize="Small"/>
-        <Label Text="Description:" FontSize="Medium" />
+        <Label Text="Device ID:" FontSize="Medium" />
         <Label Text="{Binding Description}" FontSize="Small"/>
+        <Button Text="Link device" Command="{Binding LinkDeviceCommand}" HorizontalOptions="FillAndExpand"/>
     </StackLayout>
-    
+
 </ContentPage>
