@@ -8,6 +8,8 @@ bld/
 [Ll]og/
 Debug/
 
+*.csproj.user
+
 # Visual Studio 2015 cache/options directory
 .vs/
 # Uncomment if you have tasks that create the project's static files in wwwroot
@@ -244,3 +246,6 @@ src/WebSocketManager.Client.TS/app/build/
 
 *.map
 *.min.js
+
+.settings/
+*.launch
