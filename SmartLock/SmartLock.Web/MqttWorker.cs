@@ -49,8 +49,63 @@ namespace SmartLock.Web
 
             if (args.ApplicationMessage.Topic.Contains("r")) return;
 
-            var topic = args.ApplicationMessage.Topic + "/r00";
-            await _client.PublishAsync(topic, "2,t");
+            using var scope = _serviceFactory.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<SmartLockDbContext>();
+            var macAddress = GetMacAddress(args.ApplicationMessage.Topic);
+            var result = dbContext.Devices.SingleOrDefault(device => device.MacAddress == macAddress);
+            var responseTopic = args.ApplicationMessage.Topic + "/r00";
+            if (result is null)
+            {
+                _logger.LogInformation("Device not registered");
+                await _client.PublishAsync(responseTopic, "2,f");
+                return;
+            }
+
+            var (messageType, thumbprint) = ReadRequest(message);
+
+            if(messageType == MessageType.Auth)
+            {
+
+                var registered = dbContext.Entry(result)
+                                      .Collection(result => result.Registries)
+                                      .Query()
+                                      .Any(registry => registry.Thumbprint == thumbprint);
+                var regResult = registered ? "t" : "f";
+                var response = $"2,{regResult}";
+                await _client.PublishAsync(responseTopic, response);
+                return;
+            } 
+            else if(messageType == MessageType.Register)
+            {
+                var registered = dbContext.TagRegistries.FirstOrDefault(registry => registry.Thumbprint == thumbprint);
+                if(registered is null || registered.OwnerDevice.DeviceId != result.DeviceId)
+                    dbContext.TagRegistries.Add(new Shared.Models.TagRegistry()
+                    {
+                        OwnerDevice = result,
+                        IsActive = true,
+                        Thumbprint = thumbprint
+                    }); 
+                else
+                    _logger.LogInformation("Already registered");
+                await dbContext.SaveChangesAsync();
+                await _client.PublishAsync(responseTopic, "2,t");
+                return;
+            }
+
+            await _client.PublishAsync(responseTopic, "2,f");
+        }
+
+        private static string GetMacAddress(string topic)
+        {
+            var firstIndex = topic.IndexOf('/') + 1;
+            return topic[firstIndex..];
+        }
+
+        private static (MessageType messageType, string thumbprint) ReadRequest(string payload)
+        {
+            var type = int.Parse(payload[0].ToString());
+            var thumbprint = payload[2..];
+            return ((MessageType)type, thumbprint);
         }
 
         public async Task HandleConnectedAsync(MqttClientConnectedEventArgs args)
@@ -85,5 +140,12 @@ namespace SmartLock.Web
 
             _logger.LogInformation("Client disconnected");
         }
+    }
+
+    public enum MessageType
+    {
+        Auth,
+        Register,
+        Response
     }
 }
