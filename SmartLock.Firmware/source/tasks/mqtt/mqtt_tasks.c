@@ -60,11 +60,9 @@ static void mqtt_incoming_data_cb(void *arg, const u8_t *data, u16_t len, u8_t f
         PRINTF("\"\r\n");
     }
 
-    ResponseMessage message = {
-		.result = TRUE,
-		.type = RESPONSE
-    };
-    xQueueSendToBack(receive_queue, &message, portTICK_PERIOD_MS * 0);
+
+    ResponseMessage *message = FromCsv(data);
+    xQueueSendToBack(receive_queue, message, portTICK_PERIOD_MS * 0);
 }
 
 /*!

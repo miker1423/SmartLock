@@ -45,19 +45,9 @@ void SetMessageField(ResponseMessage* message, char* buffer, int k) {
 ResponseMessage* FromCsv(char *csv) {
 	ResponseMessage *result = (ResponseMessage *)malloc(sizeof(ResponseMessage));
 	if(NULL == result) return NULL;
-	char current;
-	char buffer[20];
-	uint32_t i = 0, j = 0, k = 0;
-	while((current = csv[i++]) != '\0'){
-		if(current == ','){
-			buffer[j + 1] = '\0';
-			k++;
-			j = 0;
-		} else {
-			memcpy(buffer + j++, &current, sizeof(char));
-		}
-	}
 
+	result->type = ToMessageType(csv[0]);
+	result->result = 't' == csv[2] ? TRUE : FALSE;
 
 	return result;
 }
