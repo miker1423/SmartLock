@@ -13,6 +13,9 @@
 #include "auth_tasks.h"
 #include "event_groups.h"
 
+#define WAIT_MESSAGE_DELAY portTICK_PERIOD_MS * 10000
+#define MAX_WAIT_SPACE_IN_QUEUE portTICK_PERIOD_MS * 100
+
 extern QueueHandle_t send_queue;
 extern QueueHandle_t receive_queue;
 extern EventGroupHandle_t servo_events;
@@ -23,12 +26,12 @@ BaseType_t send_message(MessageType type){
 		.type = type,
 		.thumbprint = THUMBPRINT
 	};
-	return xQueueSendToBack(send_queue, &message, portTICK_PERIOD_MS * 100);
+	return xQueueSendToBack(send_queue, &message, MAX_WAIT_SPACE_IN_QUEUE);
 }
 
 BoolType wait_response() {
 	ResponseMessage *message = (ResponseMessage *)malloc(sizeof(ResponseMessage));
-	BaseType_t result = xQueueReceive(receive_queue, message, portTICK_PERIOD_MS * 10000);
+	BaseType_t result = xQueueReceive(receive_queue, message, WAIT_MESSAGE_DELAY);
 	if(pdFALSE == result || RESPONSE != message->type) return FALSE;
 	else return message->result;
 }

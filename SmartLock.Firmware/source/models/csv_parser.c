@@ -28,32 +28,20 @@ MessageType ToMessageType(char type){
 	return (MessageType)(type - '0');
 }
 
-void SetMessageField(ResponseMessage* message, char* buffer, int k) {
-    switch (k) {
-        case 0:
-            message->type = ToMessageType(buffer[0]);
-            break;
-        case 1:
-        	message->result = TRUE;
-            break;
-        default:
-            break;
-    }
-    memset(buffer, 0, 20);
-}
-
 ResponseMessage* FromCsv(char *csv) {
 	ResponseMessage *result = (ResponseMessage *)malloc(sizeof(ResponseMessage));
 	if(NULL == result) return NULL;
 
 	result->type = ToMessageType(csv[0]);
+	// Si el segundo campo del CSV es t, entonces recibimos una respuesta
+	// satisfactoria, de lo contrario negativa
 	result->result = 't' == csv[2] ? TRUE : FALSE;
 
 	return result;
 }
 
 char* ToCsv(RequestMessage *message){
-	char *payload = (char *)malloc(MAX_PACKAGE_SIZE); // max size for package
+	char *payload = (char *)malloc(MAX_PACKAGE_SIZE);
 	if(NULL == payload) return NULL;
 
 	payload[0] = GetMessageType(message->type);

@@ -8,6 +8,8 @@
 #ifndef MODELS_MESSAGES_H_
 #define MODELS_MESSAGES_H_
 
+#define THUMBPRINT_MAX_SIZE 20
+
 #define SERVO_OPEN_BIT (1 << 0)
 
 #define AUTH_AUTHENTICATE (1 << 0)
@@ -28,7 +30,7 @@ typedef enum {
 
 typedef struct {
 	MessageType type;
-	char thumbprint[20];
+	char thumbprint[THUMBPRINT_MAX_SIZE];
 } RequestMessage;
 
 typedef struct {

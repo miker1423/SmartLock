@@ -17,6 +17,9 @@
 #include "../../models/messages.h"
 #include "../../models/csv_parser.h"
 
+#define MAX_TOPIC_SIZE 22
+#define BASE_TOPIC_SIZE 20
+
 extern QueueHandle_t send_queue;
 extern QueueHandle_t receive_queue;
 extern SemaphoreHandle_t mqtt_mutex;
@@ -77,10 +80,10 @@ static void mqtt_incoming_publish_cb(void *arg, const char *topic, u32_t tot_len
 
 void mqtt_subscribe_to_topic(void *context){
 
-	char *receive_topic = (char *)malloc(22);
-	memcpy(receive_topic, device_topic, 20);
+	char *receive_topic = (char *)malloc(MAX_TOPIC_SIZE);
+	memcpy(receive_topic, device_topic, BASE_TOPIC_SIZE);
 	char *response_section = "/r";
-	memcpy(receive_topic + 20, response_section, 2);
+	memcpy(receive_topic + BASE_TOPIC_SIZE, response_section, 2);
 
 	mqtt_set_inpub_callback(mqtt_client, mqtt_incoming_publish_cb, mqtt_incoming_data_cb, NULL);
 
@@ -104,9 +107,6 @@ void publish_message(void *context) {
 }
 
 void mqtt_send_task(void *args) {
-	if(NULL == mqtt_mutex) {
-		PRINTF("No mutex configured");
-	}
 
 	while(1){
 		if(NULL == receive_queue){

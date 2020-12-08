@@ -1,0 +1,11 @@
+@startuml
+Usuario -> Firmware: Presiona botón SW3
+Firmware -> Servidor: Envía thumbprint a validar
+Servidor -> Servidor: Verifica que el thumbprint\n esté vínculado al Smart Lock
+alt Si está vínculado
+Servidor -> Firmware: Envía respuesta satisfactoria
+Firmware -> Firmware: Abre el seguro
+else Si no está vínculado
+Servidor -> Firmware: Envía respuesta negativa
+end
+@enduml
