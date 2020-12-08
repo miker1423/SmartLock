@@ -44,6 +44,7 @@
 #include "tasks/mqtt/mqtt_tasks.h"
 #include "tasks/auth/auth_tasks.h"
 #include "tasks/servo/servo_tasks.h"
+#include "tasks/discovery/discovery_tasks.h"
 #include "models/messages.h"
 /*******************************************************************************
  * Definitions
@@ -120,6 +121,7 @@ EventGroupHandle_t ready_events;
 
 /* Global topic for device */
 char *device_topic;
+char *macAddress;
 
 /*! @brief MQTT client ID string. */
 static char client_id[40];
@@ -375,24 +377,6 @@ static void app_thread(void *arg)
         PRINTF("Failed to obtain IP address: %d.\r\n", err);
     }
 
-    /* Publish some messages */
-    /*
-    for (i = 0; i < 5;)
-    {
-        if (connected)
-        {
-            err = tcpip_callback(publish_message, NULL);
-            if (err != ERR_OK)
-            {
-                PRINTF("Failed to invoke publishing of a message on the tcpip_thread: %d.\r\n", err);
-            }
-            i++;
-        }
-
-        sys_msleep(1000U);
-    }
-    */
-
     vTaskDelete(NULL);
 }
 
@@ -533,10 +517,12 @@ int main(void)
 
     char base_topic[8] = "devices/";
     device_topic = (char *)malloc(8 + 12); // Topic Size
+    macAddress = (char *)malloc(12);
     memcpy(device_topic, base_topic, 8);
     uint32_t i = 0;
     for(i = 0; i < 6; i++){
     	snprintf(device_topic + 8 + (i * 2), 20, "%0*x", 2, enet_config.macAddress[i]);
+    	snprintf(macAddress + (i * 2), 12, "%0*x", 2, enet_config.macAddress[1]);
     }
 
     TaskHandle_t xHandle = NULL, authHandle = NULL;
@@ -562,6 +548,12 @@ int main(void)
     result = xTaskCreate(servo_action_task, "servo_task", configMINIMAL_STACK_SIZE + 50, NULL, tskIDLE_PRIORITY, &servoHandle);
     if(pdPASS == result){
     	PRINTF("Created servo task\n");
+    }
+
+    TaskHandle_t discoveryHandle = NULL;
+    result = xTaskCreate(discovery_task, "discovery_task", configMINIMAL_STACK_SIZE + 50, NULL, tskIDLE_PRIORITY, &discoveryHandle);
+    if(pdPASS == result){
+    	PRINTF("Created discovery task\n");
     }
 
     netifapi_netif_add(&netif, &netif_ipaddr, &netif_netmask, &netif_gw, &enet_config, EXAMPLE_NETIF_INIT_FN,
