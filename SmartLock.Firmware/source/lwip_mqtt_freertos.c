@@ -95,6 +95,9 @@
 /*! @brief Priority of the temporary lwIP initialization thread. */
 #define APP_THREAD_PRIO DEFAULT_THREAD_PRIO
 
+#define TOPIC_SIZE 8
+#define MAC_ADDRESS_SIZE 12
+
 /*******************************************************************************
  * Prototypes
  ******************************************************************************/
@@ -152,80 +155,6 @@ static volatile bool connected = false;
  ******************************************************************************/
 
 /*!
- * @brief Called when subscription request finishes.
- */
-static void mqtt_topic_subscribed_cb(void *arg, err_t err)
-{
-    const char *topic = (const char *)arg;
-
-    if (err == ERR_OK)
-    {
-        PRINTF("Subscribed to the topic \"%s\".\r\n", topic);
-    }
-    else
-    {
-        PRINTF("Failed to subscribe to the topic \"%s\": %d.\r\n", topic, err);
-    }
-
-    BaseType_t higherPriority;
-    BaseType_t result = xSemaphoreGiveFromISR(mqtt_mutex, &higherPriority);
-    if(pdFAIL != result) portYIELD_FROM_ISR(higherPriority);
-}
-
-/*!
- * @brief Called when there is a message on a subscribed topic.
- */
-static void mqtt_incoming_publish_cb(void *arg, const char *topic, u32_t tot_len)
-{
-    LWIP_UNUSED_ARG(arg);
-
-    PRINTF("Received %u bytes from the topic \"%s\": \"", tot_len, topic);
-}
-
-/*!
- * @brief Called when recieved incoming published message fragment.
- */
-static void mqtt_incoming_data_cb(void *arg, const u8_t *data, u16_t len, u8_t flags)
-{
-    int i;
-
-    LWIP_UNUSED_ARG(arg);
-
-    for (i = 0; i < len; i++)
-    {
-        if (isprint(data[i]))
-        {
-            PRINTF("%c", (char)data[i]);
-        }
-        else
-        {
-            PRINTF("\\x%02x", data[i]);
-        }
-    }
-
-    if (flags & MQTT_DATA_FLAG_LAST)
-    {
-        PRINTF("\"\r\n");
-    }
-}
-
-/*!
- * @brief Subscribe to MQTT topics.
- */
-static void mqtt_subscribe_topics(mqtt_client_t *client)
-{
-	char *receive_topic = (char *)malloc(22);
-	memcpy(receive_topic, device_topic, 20);
-	char *response_section = "/r";
-	memcpy(receive_topic + 20, response_section, 2);
-
-	err_t err = mqtt_subscribe(client, receive_topic, 0, mqtt_topic_subscribed_cb, LWIP_CONST_CAST(void *, receive_topic));
-
-	if (err == ERR_OK) PRINTF("Subscribing to the topic \"%s\" with QoS %d...\r\n", receive_topic, 0);
-	else PRINTF("Failed to subscribe to the topic \"%s\" with QoS %d: %d.\r\n", receive_topic, 0, err);
-}
-
-/*!
  * @brief Called when connection state changes.
  */
 static void mqtt_connection_cb(mqtt_client_t *client, void *arg, mqtt_connection_status_t status)
@@ -238,7 +167,6 @@ static void mqtt_connection_cb(mqtt_client_t *client, void *arg, mqtt_connection
     {
         case MQTT_CONNECT_ACCEPTED:
             PRINTF("MQTT client \"%s\" connected.\r\n", client_info->client_id);
-            //mqtt_subscribe_topics(client);
             xEventGroupSetBits(ready_events, READY_BIT);
             break;
 
@@ -286,32 +214,6 @@ static void connect_to_mqtt(void *ctx)
 }
 
 /*!
- * @brief Called when publish request finishes.
- */
-static void mqtt_message_published_cb(void *arg, err_t err)
-{
-    const char *topic = (const char *)arg;
-
-    if (err == ERR_OK) PRINTF("Published to the topic \"%s\".\r\n", topic);
-    else PRINTF("Failed to publish to the topic \"%s\": %d.\r\n", topic, err);
-}
-
-/*!
- * @brief Publishes a message. To be called on tcpip_thread.
- */
-static void publish_message(void *ctx)
-{
-    static const char *topic   = "devices/device1";
-    static const char *message = "message from board";
-
-    LWIP_UNUSED_ARG(ctx);
-
-    PRINTF("Going to publish to the topic \"%s\"...\r\n", topic);
-
-    mqtt_publish(mqtt_client, topic, message, strlen(message), 1, 0, mqtt_message_published_cb, (void *)topic);
-}
-
-/*!
  * @brief Application thread.
  */
 static void app_thread(void *arg)
@@ -319,9 +221,6 @@ static void app_thread(void *arg)
     struct netif *netif = (struct netif *)arg;
     struct dhcp *dhcp;
     err_t err;
-    int i;
-
-    xSemaphoreTake(mqtt_mutex, portMAX_DELAY);
 
     /* Wait for address from DHCP */
 
@@ -516,19 +415,19 @@ int main(void)
     }
 
     char base_topic[8] = "devices/";
-    device_topic = (char *)malloc(8 + 12); // Topic Size
-    macAddress = (char *)malloc(12);
-    memcpy(device_topic, base_topic, 8);
+    uint32_t full_size = TOPIC_SIZE + MAC_ADDRESS_SIZE;
+    device_topic = (char *)malloc(full_size); // Topic Size
+    macAddress = (char *)malloc(MAC_ADDRESS_SIZE);
+    memcpy(device_topic, base_topic, TOPIC_SIZE);
     uint32_t i = 0;
     for(i = 0; i < 6; i++){
-    	snprintf(device_topic + 8 + (i * 2), 20, "%0*x", 2, enet_config.macAddress[i]);
+    	snprintf(device_topic + TOPIC_SIZE + (i * 2), full_size, "%0*x", 2, enet_config.macAddress[i]);
     	snprintf(macAddress + (i * 2), 12, "%0*x", 2, enet_config.macAddress[i]);
     }
 
     TaskHandle_t xHandle = NULL, authHandle = NULL;
-    receive_queue = xQueueCreate(10, sizeof(ResponseMessage));
-    send_queue = xQueueCreate(10, sizeof(RequestMessage));
-    mqtt_mutex = xSemaphoreCreateMutex();
+    receive_queue = xQueueCreate(3, sizeof(ResponseMessage));
+    send_queue = xQueueCreate(3, sizeof(RequestMessage));
     servo_events = xEventGroupCreate();
     auth_events = xEventGroupCreate();
     ready_events = xEventGroupCreate();

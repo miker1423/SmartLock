@@ -1,0 +1,10 @@
+@startuml
+Usuario -> Firmware: Presiona SW2
+Firmware -> Servidor: Envía thumbprint a registrar
+Servidor -> Servidor: Verifica que el dispositivo\n esté vínculado a un usuario
+alt Si está vínculado
+Servidor -> Firmware: Envía respuesta satisfactoria
+else Si no está vínculado
+Servidor -> Firmware: Envía respuesta negativa
+end
+@enduml

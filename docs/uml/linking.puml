@@ -1,0 +1,7 @@
+@startuml
+Firmware -> Firmware: Espera mensaje por UDP
+App -> Firmware: Envía mensaje de discovery
+Firmware -> App: Envía dirección MAC
+Usuario -> App: Selecciona dispositivo a vincular
+App -> Servidor: Envía dirección MAC de dispositivo a vincular con el usuario.
+@enduml
