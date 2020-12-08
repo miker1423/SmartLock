@@ -25,13 +25,7 @@ namespace SmartLock.Web
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddControllers();
-            services.AddDbContext<SmartLockDbContext>(options =>
-            {
-                if (_environment.IsDevelopment())
-                    options.UseInMemoryDatabase("db");
-                else if (_environment.IsProduction())
-                    options.UseSqlServer("");
-            });
+            services.AddDbContext<SmartLockDbContext>(options => options.UseInMemoryDatabase("db"));
             services.AddMqttClientHostedService();
         }
 
